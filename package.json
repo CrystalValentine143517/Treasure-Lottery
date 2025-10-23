@@ -1,0 +1,25 @@
+{
+  "name": "encrypted-treasure-dive",
+  "version": "1.0.0",
+  "description": "Privacy-preserving treasure box game powered by Zama FHE",
+  "scripts": {
+    "deploy": "hardhat run scripts/deploy.js --network sepolia",
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "verify": "hardhat verify --network sepolia"
+  },
+  "keywords": ["fhe", "zama", "blockchain", "privacy", "gaming"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.0",
+    "@fhevm/hardhat-plugin": "^0.1.0",
+    "hardhat": "^2.22.0"
+  },
+  "dependencies": {
+    "@fhevm/solidity": "^0.8.0",
+    "fhevm": "^0.5.4",
+    "dotenv": "^16.4.0"
+  }
+}
