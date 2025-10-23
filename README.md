@@ -8,10 +8,18 @@
   Answer encrypted questions to unlock treasure chests and win rewards!
 
   [![Live Demo](https://img.shields.io/badge/Demo-treasurelottery.vercel.app-blue?style=for-the-badge)](https://treasurelottery.vercel.app)
+  [![Download Demo Video](https://img.shields.io/badge/📹_Download_Demo-Video-red?style=for-the-badge)](https://github.com/CrystalValentine143517/Treasure-Lottery/raw/main/frontend/video2025-10-23%2020.21.28.mp4)
+
   [![Solidity](https://img.shields.io/badge/Solidity-0.8.24-363636?style=for-the-badge&logo=solidity)](https://soliditylang.org/)
   [![React](https://img.shields.io/badge/React-18.3-61DAFB?style=for-the-badge&logo=react)](https://react.dev/)
   [![Zama FHE](https://img.shields.io/badge/Zama-FHE-7C3AED?style=for-the-badge)](https://www.zama.ai/)
 </div>
+
+---
+
+## 📹 Demo Video
+
+Click the button above or [**download the demo video here**](https://github.com/CrystalValentine143517/Treasure-Lottery/raw/main/frontend/video2025-10-23%2020.21.28.mp4) to see Treasure Lottery in action!
 
 ---
 
