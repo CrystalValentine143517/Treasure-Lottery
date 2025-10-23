@@ -304,8 +304,8 @@
       "artifacts": []
     },
     "/Users/songsu/Desktop/zama/EncryptedTreasure-Dive/contracts/QuestionTreasureBox.sol": {
-      "lastModificationDate": 1761207836914,
-      "contentHash": "5109de24c869096f69ebbcd146ceb706",
+      "lastModificationDate": 1761220001560,
+      "contentHash": "7f7697702fdad728e59f46842100f40f",
       "sourceName": "contracts/QuestionTreasureBox.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -340,6 +340,42 @@
       ],
       "artifacts": [
         "QuestionTreasureBox"
+      ]
+    },
+    "/Users/songsu/Desktop/zama/EncryptedTreasure-Dive/contracts/SimplifiedQuestionBox.sol": {
+      "lastModificationDate": 1761217835493,
+      "contentHash": "7b4b06d8503b60cb57a82575746a2dcd",
+      "sourceName": "contracts/SimplifiedQuestionBox.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "cancun",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.24"
+      ],
+      "artifacts": [
+        "SimplifiedQuestionBox"
       ]
     }
   }

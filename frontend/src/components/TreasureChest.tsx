@@ -56,9 +56,18 @@ export const TreasureChest = ({ onOpen }: TreasureChestProps) => {
     abi: CONTRACT_ABI,
     eventName: 'TreasureUnlocked',
     onLogs(logs) {
+      console.log('TreasureUnlocked event received, logs count:', logs.length);
       for (const log of logs) {
+        console.log('TreasureUnlocked log:', {
+          player: log.args.player,
+          currentAddress: address,
+          reward: log.args.reward?.toString(),
+          questionId: log.args.questionId?.toString()
+        });
+
         if (log.args.player?.toLowerCase() === address?.toLowerCase()) {
           const reward = Number(log.args.reward);
+          console.log('✅ Match! Opening treasure with reward:', reward);
           setLastReward(reward);
           setIsOpened(true);
           onOpen(`${reward} Coins`);
@@ -71,24 +80,8 @@ export const TreasureChest = ({ onOpen }: TreasureChestProps) => {
     },
   });
 
-  // Watch for failed attempts
-  useWatchContractEvent({
-    address: CONTRACT_ADDRESS,
-    abi: CONTRACT_ABI,
-    eventName: 'QuestionAttempted',
-    onLogs(logs) {
-      for (const log of logs) {
-        if (log.args.player?.toLowerCase() === address?.toLowerCase()) {
-          if (!log.args.success) {
-            toast.error('❌ Wrong answer! Try again.');
-            setIsOpening(false);
-            refetchProgress();
-            setAnswer('');
-          }
-        }
-      }
-    },
-  });
+  // Don't watch QuestionAttempted - only use TreasureUnlocked for success
+  // Failure will be handled by timeout after transaction confirms
 
   // Update question when randomQuestionId changes
   useEffect(() => {
@@ -104,23 +97,40 @@ export const TreasureChest = ({ onOpen }: TreasureChestProps) => {
     }
   }, [questionData]);
 
-  // Handle transaction confirmation timeout fallback
+  // Handle transaction confirmation - check player progress to determine success
   useEffect(() => {
-    if (isConfirmed) {
-      // Wait a bit for events, then check if we need to reset manually
-      const timeout = setTimeout(() => {
-        if (isOpening) {
-          // If still opening after confirmation, it means answer was wrong
-          toast.error('❌ Wrong answer! Try again.');
-          setIsOpening(false);
-          refetchProgress();
-          setAnswer('');
+    if (isConfirmed && hash) {
+      console.log('Transaction confirmed, checking results...');
+
+      // Wait a bit for state to update, then check progress
+      const timeout = setTimeout(async () => {
+        console.log('Refetching progress after confirmation...');
+        const result = await refetchProgress();
+
+        if (result.data && Array.isArray(result.data)) {
+          const [, , newTotalSolved] = result.data;
+          console.log('New total solved:', Number(newTotalSolved), 'Previous:', totalSolved);
+
+          // If totalSolved increased, answer was correct
+          if (Number(newTotalSolved) > totalSolved) {
+            console.log('✅ Answer was correct!');
+            setIsOpened(true);
+            toast.success('🎉 Correct! You unlocked the treasure!');
+            setIsOpening(false);
+            setAnswer('');
+          } else if (isOpening) {
+            // Answer was wrong
+            console.log('❌ Answer was wrong');
+            toast.error('❌ Wrong answer! Try again.');
+            setIsOpening(false);
+            setAnswer('');
+          }
         }
-      }, 3000);
+      }, 2000);
 
       return () => clearTimeout(timeout);
     }
-  }, [isConfirmed, isOpening]);
+  }, [isConfirmed, hash, isOpening]);
 
   const handleSubmitAnswer = async () => {
     if (!isConnected) {
@@ -141,7 +151,13 @@ export const TreasureChest = ({ onOpen }: TreasureChestProps) => {
 
     try {
       setIsOpening(true);
-      
+
+      console.log('Submitting answer:', {
+        questionId: currentQuestionId.toString(),
+        answer: numAnswer,
+        questionText: questionText
+      });
+
       await writeContract({
         address: CONTRACT_ADDRESS,
         abi: CONTRACT_ABI,

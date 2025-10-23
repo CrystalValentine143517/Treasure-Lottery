@@ -11,7 +11,8 @@ contract QuestionTreasureBox is SepoliaConfig {
 
     struct Question {
         string questionText;
-        euint32 encryptedAnswer;  // Encrypted correct answer
+        euint32 encryptedAnswer;  // FHE encrypted answer (for demonstration)
+        uint32 plaintextAnswer;   // Plaintext answer for verification (FHE decrypt unavailable on Sepolia)
         uint64 reward;
         bool isActive;
         uint256 createdAt;
@@ -69,6 +70,7 @@ contract QuestionTreasureBox is SepoliaConfig {
         questions[questionId] = Question({
             questionText: questionText,
             encryptedAnswer: encryptedAnswer,
+            plaintextAnswer: answer,
             reward: reward,
             isActive: true,
             createdAt: block.timestamp
@@ -81,11 +83,10 @@ contract QuestionTreasureBox is SepoliaConfig {
     /// @notice Answer a question
     /// @param questionId The question to answer
     /// @param answer Player's answer (plaintext)
-    /// @return success Whether the answer was correct
     function answerQuestion(
         uint256 questionId,
         uint32 answer
-    ) external returns (bool success) {
+    ) external {
         if (questionId >= questionCount) revert InvalidQuestionId();
 
         Question storage question = questions[questionId];
@@ -114,9 +115,13 @@ contract QuestionTreasureBox is SepoliaConfig {
         euint32 encryptedUserAnswer = FHE.asEuint32(answer);
         FHE.allowThis(encryptedUserAnswer);
 
-        // Perform FHE homomorphic comparison
+        // Perform FHE homomorphic comparison (demonstration of FHE capabilities)
         ebool isCorrect = FHE.eq(encryptedUserAnswer, question.encryptedAnswer);
-        success = _checkEquality(isCorrect);
+
+        // Verify answer using plaintext comparison
+        // Note: FHE decryption is not available on Sepolia without Gateway
+        // In production with Gateway, we would use async decryption
+        bool success = (answer == question.plaintextAnswer);
 
         emit QuestionAttempted(msg.sender, questionId, success);
 
@@ -127,8 +132,6 @@ contract QuestionTreasureBox is SepoliaConfig {
 
             emit TreasureUnlocked(msg.sender, questionId, question.reward);
         }
-
-        return success;
     }
 
     /// @notice Check and reset daily attempts if new day
@@ -259,6 +262,7 @@ contract QuestionTreasureBox is SepoliaConfig {
         questions[questionId] = Question({
             questionText: questionText,
             encryptedAnswer: encryptedAnswer,
+            plaintextAnswer: answer,
             reward: reward,
             isActive: true,
             createdAt: block.timestamp
