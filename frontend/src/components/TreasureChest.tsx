@@ -24,7 +24,7 @@ export const TreasureChest = ({ onOpen }: TreasureChestProps) => {
 
   // Contract interactions
   const { writeContract, data: hash } = useWriteContract();
-  const { isLoading: isConfirming } = useWaitForTransactionReceipt({ hash });
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
 
   // Read player progress
   const { data: playerProgress, refetch: refetchProgress } = useReadContract({
@@ -103,6 +103,24 @@ export const TreasureChest = ({ onOpen }: TreasureChestProps) => {
       setQuestionText(questionData[0] as string);
     }
   }, [questionData]);
+
+  // Handle transaction confirmation timeout fallback
+  useEffect(() => {
+    if (isConfirmed) {
+      // Wait a bit for events, then check if we need to reset manually
+      const timeout = setTimeout(() => {
+        if (isOpening) {
+          // If still opening after confirmation, it means answer was wrong
+          toast.error('❌ Wrong answer! Try again.');
+          setIsOpening(false);
+          refetchProgress();
+          setAnswer('');
+        }
+      }, 3000);
+
+      return () => clearTimeout(timeout);
+    }
+  }, [isConfirmed, isOpening]);
 
   const handleSubmitAnswer = async () => {
     if (!isConnected) {
