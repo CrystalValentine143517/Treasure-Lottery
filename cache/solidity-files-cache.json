@@ -377,6 +377,42 @@
       "artifacts": [
         "SimplifiedQuestionBox"
       ]
+    },
+    "/Users/songsu/Desktop/zama/EncryptedTreasure-Dive/contracts/QuestionTreasureBoxTest.sol": {
+      "lastModificationDate": 1761224890532,
+      "contentHash": "e9fe8c02f4ae6d8fef6b43c138b2e972",
+      "sourceName": "contracts/QuestionTreasureBoxTest.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "cancun",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.24"
+      ],
+      "artifacts": [
+        "QuestionTreasureBoxTest"
+      ]
     }
   }
 }
