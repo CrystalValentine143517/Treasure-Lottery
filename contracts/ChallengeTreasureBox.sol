@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
+import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 import {FHE, euint32, ebool} from "@fhevm/solidity/lib/FHE.sol";
 
 /// @title ChallengeTreasureBox
 /// @notice FHE-based challenge treasure box game
 /// @dev Uses FHE for encrypted target storage and homomorphic comparison
-contract ChallengeTreasureBox is SepoliaConfig {
+/// @dev Migrated to fhEVM v0.9.1 with self-relaying decryption model
+contract ChallengeTreasureBox is ZamaEthereumConfig {
 
     struct Challenge {
         euint32 encryptedTarget;  // Encrypted target value (using FHE)
@@ -61,9 +62,13 @@ contract ChallengeTreasureBox is SepoliaConfig {
 
         uint256 challengeId = challengeCount++;
 
-        // Encrypt the target value using FHE
+        // Store plaintext for verification (v0.9.1 demo)
+        plaintextTargets[challengeId] = targetValue;
+
+        // Encrypt the target value using FHE (v0.9.1)
         euint32 encryptedTarget = FHE.asEuint32(targetValue);
         FHE.allowThis(encryptedTarget);
+        FHE.makePubliclyDecryptable(encryptedTarget);
 
         challenges[challengeId] = Challenge({
             encryptedTarget: encryptedTarget,
@@ -114,18 +119,19 @@ contract ChallengeTreasureBox is SepoliaConfig {
         // Validate guess is in range
         require(guess >= challenge.minRange && guess <= challenge.maxRange, "Guess out of range");
 
-        // Convert guess to encrypted value
+        // Convert guess to encrypted value (v0.9.1)
         euint32 encryptedGuess = FHE.asEuint32(guess);
         FHE.allowThis(encryptedGuess);
+        FHE.makePubliclyDecryptable(encryptedGuess);
 
         // Perform homomorphic comparison (FHE magic!)
         // This compares encrypted values WITHOUT decrypting them
         ebool encryptedResult = FHE.eq(encryptedGuess, challenge.encryptedTarget);
+        FHE.makePubliclyDecryptable(encryptedResult);
 
-        // For demo purposes, we reveal the result
-        // In production, you'd need Gateway callback
-        // For now, we use a workaround: store the encrypted result and let frontend query
-        isCorrect = _checkEquality(encryptedResult);
+        // For demo purposes, we reveal the result using plaintext comparison
+        // In v0.9.1, use self-relaying SDK for decryption
+        isCorrect = (guess == _getPlaintextTarget(challengeId));
 
         // Update state
         attemptCounts[msg.sender][challengeId]++;
@@ -145,13 +151,13 @@ contract ChallengeTreasureBox is SepoliaConfig {
         return isCorrect;
     }
 
-    /// @notice Workaround to check ebool equality
-    /// @dev In production, this would use Gateway callback
-    function _checkEquality(ebool encryptedBool) private view returns (bool) {
-        // This is a simplified check - in reality you'd need Gateway
-        // For demo, we'll use the fact that ebool wraps a uint256
-        // This is NOT secure in production!
-        return ebool.unwrap(encryptedBool) != 0;
+    // Store plaintext targets for demo verification (in production, use SDK decryption)
+    mapping(uint256 => uint32) private plaintextTargets;
+
+    /// @notice Get plaintext target for verification (internal use only)
+    /// @dev In production, use self-relaying SDK for secure decryption
+    function _getPlaintextTarget(uint256 challengeId) private view returns (uint32) {
+        return plaintextTargets[challengeId];
     }
 
     /// @notice Get player statistics
@@ -250,8 +256,14 @@ contract ChallengeTreasureBox is SepoliaConfig {
         uint64 reward
     ) private {
         uint256 challengeId = challengeCount++;
+
+        // Store plaintext for verification (v0.9.1 demo)
+        plaintextTargets[challengeId] = targetValue;
+
+        // Encrypt the target value using FHE (v0.9.1)
         euint32 encryptedTarget = FHE.asEuint32(targetValue);
         FHE.allowThis(encryptedTarget);
+        FHE.makePubliclyDecryptable(encryptedTarget);
 
         challenges[challengeId] = Challenge({
             encryptedTarget: encryptedTarget,
