@@ -1,30 +1,40 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import chestClosedOriginal from '@/assets/chest-closed.png';
 import chestOpenOriginal from '@/assets/chest-open.png';
 import particles from '@/assets/particles.png';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useWatchContractEvent, useReadContract } from 'wagmi';
-import { toast } from 'sonner';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useWatchContractEvent, useReadContract, usePublicClient } from 'wagmi';
+import { transactionToast, toast } from '@/lib/transactionToast';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from '@/config/contract';
+import { requestDecryptionWithRetry, initializeFHE, encryptAnswer, isFHEReady, waitForFHE } from '@/lib/fhe';
+import { decodeEventLog } from 'viem';
 
 interface TreasureChestProps {
   onOpen: (reward: string) => void;
 }
 
+type GamePhase = 'idle' | 'encrypting' | 'submitting' | 'confirming' | 'decrypting' | 'claiming' | 'completed';
+
 export const TreasureChest = ({ onOpen }: TreasureChestProps) => {
-  const [isOpening, setIsOpening] = useState(false);
+  const [phase, setPhase] = useState<GamePhase>('idle');
   const [isOpened, setIsOpened] = useState(false);
   const [lastReward, setLastReward] = useState<number | null>(null);
   const [answer, setAnswer] = useState('');
   const [currentQuestionId, setCurrentQuestionId] = useState<bigint>(0n);
   const [questionText, setQuestionText] = useState('');
+  const [pendingAnswerId, setPendingAnswerId] = useState<bigint | null>(null);
+  const [resultHandle, setResultHandle] = useState<`0x${string}` | null>(null);
   const { address, isConnected } = useAccount();
+  const pendingToastShown = useRef(false);
+  const publicClient = usePublicClient();
 
   // Contract interactions
   const { writeContract, data: hash } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
+  const { writeContract: claimWrite, data: claimHash } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed, isError: isTxError, error: txError } = useWaitForTransactionReceipt({ hash });
+  const { isLoading: isClaimConfirming, isSuccess: isClaimConfirmed, isError: isClaimError } = useWaitForTransactionReceipt({ hash: claimHash });
 
   // Read player progress
   const { data: playerProgress, refetch: refetchProgress } = useReadContract({
@@ -50,38 +60,81 @@ export const TreasureChest = ({ onOpen }: TreasureChestProps) => {
     args: [currentQuestionId],
   });
 
-  // Watch for treasure unlocked event
+  // Watch for treasure unlocked event (from claimResult)
   useWatchContractEvent({
     address: CONTRACT_ADDRESS,
     abi: CONTRACT_ABI,
     eventName: 'TreasureUnlocked',
     onLogs(logs) {
-      console.log('TreasureUnlocked event received, logs count:', logs.length);
+      console.log('TreasureUnlocked event received');
       for (const log of logs) {
-        console.log('TreasureUnlocked log:', {
-          player: log.args.player,
-          currentAddress: address,
-          reward: log.args.reward?.toString(),
-          questionId: log.args.questionId?.toString()
-        });
-
         if (log.args.player?.toLowerCase() === address?.toLowerCase()) {
           const reward = Number(log.args.reward);
-          console.log('✅ Match! Opening treasure with reward:', reward);
+          console.log('Treasure unlocked with reward:', reward);
           setLastReward(reward);
           setIsOpened(true);
+          setPhase('completed');
           onOpen(`${reward} Coins`);
-          toast.success(`🎉 Correct! You won ${reward} Coins!`);
+
+          if (claimHash) {
+            transactionToast.success(claimHash, `Correct! You won ${reward} Coins!`);
+          } else {
+            toast.success(`Correct! You won ${reward} Coins!`);
+          }
+
           refetchProgress();
-          setIsOpening(false);
           setAnswer('');
+          pendingToastShown.current = false;
         }
       }
     },
   });
 
-  // Don't watch QuestionAttempted - only use TreasureUnlocked for success
-  // Failure will be handled by timeout after transaction confirms
+  // Watch for wrong answer event
+  useWatchContractEvent({
+    address: CONTRACT_ADDRESS,
+    abi: CONTRACT_ABI,
+    eventName: 'AnswerWrong',
+    onLogs(logs) {
+      for (const log of logs) {
+        if (log.args.player?.toLowerCase() === address?.toLowerCase()) {
+          console.log('Wrong answer detected');
+          setPhase('idle');
+          if (claimHash) {
+            transactionToast.error(claimHash, 'Wrong answer', 'Try again with a different answer');
+          } else {
+            toast.error('Wrong answer', 'Try again with a different answer');
+          }
+          setAnswer('');
+          refetchProgress();
+          pendingToastShown.current = false;
+        }
+      }
+    },
+  });
+
+  // Show pending toast when hash is received
+  useEffect(() => {
+    if (hash && !pendingToastShown.current && phase === 'submitting') {
+      pendingToastShown.current = true;
+      setPhase('confirming');
+      transactionToast.pending(hash, 'Answer submitted - Encrypting comparison...');
+    }
+  }, [hash, phase]);
+
+  // Handle transaction error
+  useEffect(() => {
+    if (isTxError && hash) {
+      transactionToast.error(
+        hash,
+        'Transaction failed',
+        txError?.message || 'The transaction was reverted'
+      );
+      setPhase('idle');
+      setAnswer('');
+      pendingToastShown.current = false;
+    }
+  }, [isTxError, hash, txError]);
 
   // Update question when randomQuestionId changes
   useEffect(() => {
@@ -97,43 +150,110 @@ export const TreasureChest = ({ onOpen }: TreasureChestProps) => {
     }
   }, [questionData]);
 
-  // Handle transaction confirmation - check player progress to determine success
+  // Handle transaction confirmation - start FHE decryption process
   useEffect(() => {
-    if (isConfirmed && hash) {
-      console.log('Transaction confirmed, checking results...');
+    if (isConfirmed && hash && phase === 'confirming') {
+      console.log('Transaction confirmed, starting FHE decryption...');
+      setPhase('decrypting');
 
-      // Wait a bit for state to update, then check progress
-      const timeout = setTimeout(async () => {
-        console.log('Refetching progress after confirmation...');
-        const result = await refetchProgress();
-
-        if (result.data && Array.isArray(result.data)) {
-          const [, , newTotalSolved] = result.data;
-          console.log('New total solved:', Number(newTotalSolved), 'Previous:', totalSolved);
-
-          // If totalSolved increased, answer was correct
-          if (Number(newTotalSolved) > totalSolved) {
-            console.log('✅ Answer was correct!');
-            setIsOpened(true);
-            toast.success('🎉 Correct! You unlocked the treasure!');
-            setIsOpening(false);
-            setAnswer('');
-          } else if (isOpening) {
-            // Answer was wrong
-            console.log('❌ Answer was wrong');
-            toast.error('❌ Wrong answer! Try again.');
-            setIsOpening(false);
-            setAnswer('');
+      // Parse the AnswerSubmitted event from transaction receipt
+      const processDecryption = async () => {
+        try {
+          // Get transaction receipt to extract event data
+          const receipt = await publicClient?.getTransactionReceipt({ hash });
+          if (!receipt) {
+            throw new Error('Failed to get transaction receipt');
           }
-        }
-      }, 2000);
 
-      return () => clearTimeout(timeout);
+          // Find AnswerSubmitted event
+          for (const log of receipt.logs) {
+            try {
+              const decoded = decodeEventLog({
+                abi: CONTRACT_ABI,
+                data: log.data,
+                topics: log.topics,
+              });
+
+              if (decoded.eventName === 'AnswerSubmitted') {
+                const pendingId = decoded.args.pendingAnswerId as bigint;
+                const handle = decoded.args.encryptedResultHandle as `0x${string}`;
+
+                console.log('AnswerSubmitted event found:', {
+                  pendingAnswerId: pendingId.toString(),
+                  encryptedResultHandle: handle
+                });
+
+                setPendingAnswerId(pendingId);
+                setResultHandle(handle);
+
+                // Update toast
+                transactionToast.success(hash, 'FHE comparison complete. Requesting decryption...');
+
+                // Request decryption from KMS
+                toast.loading('Requesting FHE decryption from KMS...');
+
+                try {
+                  await initializeFHE();
+                  const { decryptedResult, decryptionProof } = await requestDecryptionWithRetry(handle, 15, 3000);
+
+                  console.log('Decryption result:', decryptedResult);
+                  toast.dismiss();
+
+                  // Now claim the result on-chain
+                  setPhase('claiming');
+                  toast.loading('Claiming result on-chain...');
+
+                  await claimWrite({
+                    address: CONTRACT_ADDRESS,
+                    abi: CONTRACT_ABI,
+                    functionName: 'claimResult',
+                    args: [pendingId, decryptedResult, decryptionProof],
+                  });
+                } catch (decryptError: any) {
+                  console.error('Decryption failed:', decryptError);
+                  toast.dismiss();
+                  toast.error('FHE decryption failed', decryptError?.message || 'Please try again');
+                  setPhase('idle');
+                }
+                return;
+              }
+            } catch {
+              // Not the event we're looking for
+            }
+          }
+
+          throw new Error('AnswerSubmitted event not found');
+        } catch (error: any) {
+          console.error('Error processing decryption:', error);
+          toast.error('Failed to process answer', error?.message);
+          setPhase('idle');
+        }
+      };
+
+      processDecryption();
     }
-  }, [isConfirmed, hash, isOpening]);
+  }, [isConfirmed, hash, phase, publicClient, claimWrite]);
+
+  // Handle claim transaction confirmation
+  useEffect(() => {
+    if (isClaimConfirmed && claimHash) {
+      console.log('Claim transaction confirmed');
+      toast.dismiss();
+      // The TreasureUnlocked or AnswerWrong event will handle the final state
+    }
+  }, [isClaimConfirmed, claimHash]);
+
+  // Handle claim error
+  useEffect(() => {
+    if (isClaimError && claimHash) {
+      toast.dismiss();
+      toast.error('Claim failed', 'Invalid decryption proof or already processed');
+      setPhase('idle');
+    }
+  }, [isClaimError, claimHash]);
 
   const handleSubmitAnswer = async () => {
-    if (!isConnected) {
+    if (!isConnected || !address) {
       toast.error('Please connect your wallet first!');
       return;
     }
@@ -150,41 +270,75 @@ export const TreasureChest = ({ onOpen }: TreasureChestProps) => {
     }
 
     try {
-      setIsOpening(true);
+      // Phase 1: Encrypt the answer using FHE SDK
+      setPhase('encrypting');
+      pendingToastShown.current = false;
 
-      console.log('Submitting answer:', {
+      console.log('Starting FHE encryption for answer:', {
         questionId: currentQuestionId.toString(),
         answer: numAnswer,
         questionText: questionText
       });
 
+      // Wait for FHE SDK to be loaded
+      if (!isFHEReady()) {
+        toast.loading('Loading FHE SDK...');
+        const ready = await waitForFHE(10000);
+        toast.dismiss();
+        if (!ready) {
+          throw new Error('FHE SDK failed to load. Please refresh the page.');
+        }
+      }
+
+      // Initialize FHE and encrypt the answer
+      toast.loading('Encrypting answer with FHE...');
+      await initializeFHE();
+      const { handle, proof } = await encryptAnswer(address, numAnswer);
+      toast.dismiss();
+
+      console.log('FHE encryption complete:', {
+        handle,
+        proofLength: proof.length
+      });
+
+      // Phase 2: Submit the encrypted answer to the contract
+      setPhase('submitting');
+      toast.info('Submitting encrypted answer...');
+
       await writeContract({
         address: CONTRACT_ADDRESS,
         abi: CONTRACT_ABI,
-        functionName: 'answerQuestion',
-        args: [currentQuestionId, numAnswer],
+        functionName: 'submitEncryptedAnswer',
+        args: [currentQuestionId, handle, proof],
       });
 
-      toast.info('Submitting your answer...');
     } catch (error: any) {
       console.error('Error submitting answer:', error);
-      setIsOpening(false);
-      
+      setPhase('idle');
+      pendingToastShown.current = false;
+      toast.dismiss();
+
       if (error?.message?.includes('DailyLimitReached')) {
-        toast.error('Daily limit reached! Come back tomorrow.');
+        toast.error('Daily limit reached!', 'Come back tomorrow');
       } else if (error?.message?.includes('AlreadySolved')) {
-        toast.error('You already solved this question!');
+        toast.error('Already solved!', 'You already solved this question');
+      } else if (error?.message?.includes('User rejected')) {
+        toast.error('Transaction rejected', 'You cancelled the transaction');
+      } else if (error?.message?.includes('FHE SDK')) {
+        toast.error('FHE Error', error?.message || 'Failed to encrypt answer');
       } else {
-        toast.error(error?.message || 'Failed to submit answer');
+        toast.error('Transaction failed', error?.shortMessage || error?.message || 'Please try again');
       }
     }
   };
 
   const handleReset = () => {
-    setIsOpening(false);
+    setPhase('idle');
     setIsOpened(false);
     setLastReward(null);
     setAnswer('');
+    setPendingAnswerId(null);
+    setResultHandle(null);
     refetchProgress();
     refetchRandomQuestion();
   };
@@ -196,10 +350,22 @@ export const TreasureChest = ({ onOpen }: TreasureChestProps) => {
     return `${hours}h ${minutes}m ${secs}s`;
   };
 
+  const isProcessing = phase !== 'idle' && phase !== 'completed';
   const remainingAttempts = playerProgress && Array.isArray(playerProgress) ? Number(playerProgress[1]) : 3;
   const totalSolved = playerProgress && Array.isArray(playerProgress) ? Number(playerProgress[2]) : 0;
   const totalRewards = playerProgress && Array.isArray(playerProgress) ? Number(playerProgress[3]) : 0;
   const timeUntilReset = playerProgress && Array.isArray(playerProgress) ? Number(playerProgress[4]) : 0;
+
+  const getPhaseText = () => {
+    switch (phase) {
+      case 'encrypting': return 'Encrypting with FHE...';
+      case 'submitting': return 'Submitting...';
+      case 'confirming': return 'Confirming...';
+      case 'decrypting': return 'Decrypting FHE...';
+      case 'claiming': return 'Claiming result...';
+      default: return 'Submit Answer';
+    }
+  };
 
   return (
     <div className="relative flex flex-col items-center justify-center gap-8 min-h-[600px]">
@@ -222,7 +388,7 @@ export const TreasureChest = ({ onOpen }: TreasureChestProps) => {
 
       <motion.div
         className="relative"
-        animate={!isOpening ? { y: [0, -20, 0] } : {}}
+        animate={!isProcessing ? { y: [0, -20, 0] } : {}}
         transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
       >
         <AnimatePresence mode="wait">
@@ -233,14 +399,14 @@ export const TreasureChest = ({ onOpen }: TreasureChestProps) => {
               alt="Treasure Chest"
               className="w-[400px] h-[400px] object-contain drop-shadow-2xl"
               initial={{ scale: 1 }}
-              animate={isOpening ? {
+              animate={isProcessing ? {
                 scale: [1, 1.1, 1],
                 rotate: [0, -5, 5, -5, 0]
               } : { scale: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
               transition={{ duration: 1.5 }}
               style={{
-                filter: isOpening
+                filter: isProcessing
                   ? 'brightness(1.3) drop-shadow(0 0 30px hsl(var(--gold)))'
                   : 'drop-shadow(0 0 20px rgba(0,0,0,0.3))',
               }}
@@ -261,7 +427,7 @@ export const TreasureChest = ({ onOpen }: TreasureChestProps) => {
           )}
         </AnimatePresence>
 
-        {!isOpening && !isOpened && (
+        {!isProcessing && !isOpened && (
           <motion.div
             className="absolute -inset-4"
             animate={{
@@ -288,6 +454,11 @@ export const TreasureChest = ({ onOpen }: TreasureChestProps) => {
               >
                 <p className="text-lg font-medium text-foreground mb-2">🔐 FHE Encrypted Challenge</p>
                 <p className="text-2xl font-bold text-[hsl(var(--gold))]">{questionText}</p>
+                {phase === 'decrypting' && (
+                  <p className="text-sm text-blue-400 mt-2 animate-pulse">
+                    Requesting decryption from Zama KMS...
+                  </p>
+                )}
               </motion.div>
             )}
 
@@ -298,24 +469,24 @@ export const TreasureChest = ({ onOpen }: TreasureChestProps) => {
                   value={answer}
                   onChange={(e) => setAnswer(e.target.value)}
                   placeholder="Enter your answer (number)"
-                  disabled={isOpening || isConfirming}
+                  disabled={isProcessing}
                   className="text-lg text-center h-14 bg-background/50 backdrop-blur-sm border-[hsl(var(--gold))]/30 focus:border-[hsl(var(--gold))]"
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
+                    if (e.key === 'Enter' && !isProcessing) {
                       handleSubmitAnswer();
                     }
                   }}
                 />
                 <Button
                   onClick={handleSubmitAnswer}
-                  disabled={isOpening || isConfirming || !answer.trim()}
+                  disabled={isProcessing || !answer.trim()}
                   size="lg"
                   className="relative px-12 py-6 text-xl font-bold bg-gradient-to-r from-[hsl(var(--gold))] to-[hsl(var(--gold-dark))] hover:from-[hsl(var(--gold-dark))] hover:to-[hsl(var(--gold))] text-[hsl(var(--background))] rounded-2xl shadow-[0_0_30px_hsl(var(--gold)/0.5)] hover:shadow-[0_0_50px_hsl(var(--gold)/0.8)] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isOpening || isConfirming ? (
+                  {isProcessing ? (
                     <span className="flex items-center gap-2">
                       <span className="animate-spin">⚡</span>
-                      {isConfirming ? 'Confirming...' : 'Checking...'}
+                      {getPhaseText()}
                     </span>
                   ) : (
                     'Submit Answer'
@@ -341,7 +512,7 @@ export const TreasureChest = ({ onOpen }: TreasureChestProps) => {
           </Button>
         )}
 
-        {!isConnected && !isOpening && (
+        {!isConnected && !isProcessing && (
           <motion.p
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
