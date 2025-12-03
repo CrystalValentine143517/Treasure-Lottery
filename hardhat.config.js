@@ -1,4 +1,5 @@
 require("@nomicfoundation/hardhat-toolbox");
+require("@fhevm/hardhat-plugin");
 require("dotenv").config();
 
 /** @type import('hardhat/config').HardhatUserConfig */
@@ -14,6 +15,9 @@ module.exports = {
     },
   },
   networks: {
+    hardhat: {
+      allowUnlimitedContractSize: true,
+    },
     sepolia: {
       url: process.env.SEPOLIA_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com",
       accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
