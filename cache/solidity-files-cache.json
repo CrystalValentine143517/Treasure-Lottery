@@ -1,45 +1,9 @@
 {
   "_format": "hh-sol-cache-2",
   "files": {
-    "/Users/songsu/Desktop/zama/EncryptedTreasure-Dive/contracts/SimpleTreasureBoxV2.sol": {
-      "lastModificationDate": 1761191113887,
-      "contentHash": "19edf1345400e16d66dd321320faab96",
-      "sourceName": "contracts/SimpleTreasureBoxV2.sol",
-      "solcConfig": {
-        "version": "0.8.24",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "cancun",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.24"
-      ],
-      "artifacts": [
-        "SimpleTreasureBoxV2"
-      ]
-    },
-    "/Users/songsu/Desktop/zama/EncryptedTreasure-Dive/contracts/ChallengeTreasureBox.sol": {
-      "lastModificationDate": 1761206645220,
-      "contentHash": "6abab6c4ea625d3d6c5a62b9f693b88a",
+    "/Users/songsu/Desktop/zama/TreasureLottery/contracts/ChallengeTreasureBox.sol": {
+      "lastModificationDate": 1764953037681,
+      "contentHash": "bf93da158ff58dc25bf103751e396d4f",
       "sourceName": "contracts/ChallengeTreasureBox.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -76,9 +40,9 @@
         "ChallengeTreasureBox"
       ]
     },
-    "/Users/songsu/Desktop/zama/EncryptedTreasure-Dive/node_modules/@fhevm/solidity/config/ZamaConfig.sol": {
-      "lastModificationDate": 1761191044072,
-      "contentHash": "18a39bcfe0027283f975050db52d9058",
+    "/Users/songsu/Desktop/zama/TreasureLottery/node_modules/@fhevm/solidity/config/ZamaConfig.sol": {
+      "lastModificationDate": 1764953239943,
+      "contentHash": "d33d3a7d4f7659005ac6493a3b3bb844",
       "sourceName": "@fhevm/solidity/config/ZamaConfig.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -105,7 +69,6 @@
         }
       },
       "imports": [
-        "@zama-fhe/oracle-solidity/address/ZamaOracleAddress.sol",
         "../lib/FHE.sol",
         "../lib/Impl.sol"
       ],
@@ -113,14 +76,13 @@
         "^0.8.24"
       ],
       "artifacts": [
-        "EthereumConfig",
-        "SepoliaConfig",
-        "ZamaConfig"
+        "ZamaConfig",
+        "ZamaEthereumConfig"
       ]
     },
-    "/Users/songsu/Desktop/zama/EncryptedTreasure-Dive/node_modules/@fhevm/solidity/lib/FHE.sol": {
-      "lastModificationDate": 1761191044071,
-      "contentHash": "4595eb92a31223262d4e29a27c938d97",
+    "/Users/songsu/Desktop/zama/TreasureLottery/node_modules/@fhevm/solidity/lib/FHE.sol": {
+      "lastModificationDate": 1764953239811,
+      "contentHash": "a3654ad3694e201ea093182154462272",
       "sourceName": "@fhevm/solidity/lib/FHE.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -156,13 +118,12 @@
       ],
       "artifacts": [
         "FHE",
-        "IDecryptionOracle",
         "IKMSVerifier"
       ]
     },
-    "/Users/songsu/Desktop/zama/EncryptedTreasure-Dive/node_modules/@fhevm/solidity/lib/Impl.sol": {
-      "lastModificationDate": 1761191044072,
-      "contentHash": "82d95a375319ded89a84a9323575b351",
+    "/Users/songsu/Desktop/zama/TreasureLottery/node_modules/@fhevm/solidity/lib/Impl.sol": {
+      "lastModificationDate": 1764953239889,
+      "contentHash": "6039bec93defbef7e3e2729c62b95194",
       "sourceName": "@fhevm/solidity/lib/Impl.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -201,42 +162,8 @@
         "Impl"
       ]
     },
-    "/Users/songsu/Desktop/zama/EncryptedTreasure-Dive/node_modules/@zama-fhe/oracle-solidity/address/ZamaOracleAddress.sol": {
-      "lastModificationDate": 1761191044220,
-      "contentHash": "7d4cce05c3d5e3799454d5a9fba75048",
-      "sourceName": "@zama-fhe/oracle-solidity/address/ZamaOracleAddress.sol",
-      "solcConfig": {
-        "version": "0.8.24",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "cancun",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.24"
-      ],
-      "artifacts": []
-    },
-    "/Users/songsu/Desktop/zama/EncryptedTreasure-Dive/node_modules/@fhevm/solidity/lib/FheType.sol": {
-      "lastModificationDate": 1761191044072,
+    "/Users/songsu/Desktop/zama/TreasureLottery/node_modules/@fhevm/solidity/lib/FheType.sol": {
+      "lastModificationDate": 1764953239860,
       "contentHash": "65f472a3e319ba73ac6b19a5e8660d15",
       "sourceName": "@fhevm/solidity/lib/FheType.sol",
       "solcConfig": {
@@ -269,8 +196,8 @@
       ],
       "artifacts": []
     },
-    "/Users/songsu/Desktop/zama/EncryptedTreasure-Dive/node_modules/encrypted-types/EncryptedTypes.sol": {
-      "lastModificationDate": 1761191043445,
+    "/Users/songsu/Desktop/zama/TreasureLottery/node_modules/encrypted-types/EncryptedTypes.sol": {
+      "lastModificationDate": 1764953239300,
       "contentHash": "521a624fad71cd29fc4b7c443b41bb86",
       "sourceName": "encrypted-types/EncryptedTypes.sol",
       "solcConfig": {
@@ -303,9 +230,9 @@
       ],
       "artifacts": []
     },
-    "/Users/songsu/Desktop/zama/EncryptedTreasure-Dive/contracts/QuestionTreasureBox.sol": {
-      "lastModificationDate": 1761220001560,
-      "contentHash": "7f7697702fdad728e59f46842100f40f",
+    "/Users/songsu/Desktop/zama/TreasureLottery/contracts/QuestionTreasureBox.sol": {
+      "lastModificationDate": 1764954880391,
+      "contentHash": "4918f7928606f8be6002a11881f3c497",
       "sourceName": "contracts/QuestionTreasureBox.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -342,8 +269,80 @@
         "QuestionTreasureBox"
       ]
     },
-    "/Users/songsu/Desktop/zama/EncryptedTreasure-Dive/contracts/SimplifiedQuestionBox.sol": {
-      "lastModificationDate": 1761217835493,
+    "/Users/songsu/Desktop/zama/TreasureLottery/contracts/QuestionTreasureBoxTest.sol": {
+      "lastModificationDate": 1764753179132,
+      "contentHash": "e9fe8c02f4ae6d8fef6b43c138b2e972",
+      "sourceName": "contracts/QuestionTreasureBoxTest.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "cancun",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.24"
+      ],
+      "artifacts": [
+        "QuestionTreasureBoxTest"
+      ]
+    },
+    "/Users/songsu/Desktop/zama/TreasureLottery/contracts/SimpleTreasureBoxV2.sol": {
+      "lastModificationDate": 1764753179137,
+      "contentHash": "19edf1345400e16d66dd321320faab96",
+      "sourceName": "contracts/SimpleTreasureBoxV2.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "cancun",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.24"
+      ],
+      "artifacts": [
+        "SimpleTreasureBoxV2"
+      ]
+    },
+    "/Users/songsu/Desktop/zama/TreasureLottery/contracts/SimplifiedQuestionBox.sol": {
+      "lastModificationDate": 1764753179139,
       "contentHash": "7b4b06d8503b60cb57a82575746a2dcd",
       "sourceName": "contracts/SimplifiedQuestionBox.sol",
       "solcConfig": {
@@ -378,10 +377,10 @@
         "SimplifiedQuestionBox"
       ]
     },
-    "/Users/songsu/Desktop/zama/EncryptedTreasure-Dive/contracts/QuestionTreasureBoxTest.sol": {
-      "lastModificationDate": 1761224890532,
-      "contentHash": "e9fe8c02f4ae6d8fef6b43c138b2e972",
-      "sourceName": "contracts/QuestionTreasureBoxTest.sol",
+    "/Users/songsu/Desktop/zama/TreasureLottery/fhevmTemp/@fhevm/solidity/config/ZamaConfig.sol": {
+      "lastModificationDate": 1764956848008,
+      "contentHash": "2ed697106fb9cc5510d56baf77bbda66",
+      "sourceName": "@fhevm/solidity/config/ZamaConfig.sol",
       "solcConfig": {
         "version": "0.8.24",
         "settings": {
@@ -406,12 +405,16 @@
           }
         }
       },
-      "imports": [],
+      "imports": [
+        "@fhevm/solidity/lib/FHE.sol",
+        "@fhevm/solidity/lib/Impl.sol"
+      ],
       "versionPragmas": [
         "^0.8.24"
       ],
       "artifacts": [
-        "QuestionTreasureBoxTest"
+        "ZamaConfig",
+        "ZamaEthereumConfig"
       ]
     }
   }
