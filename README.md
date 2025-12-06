@@ -1,314 +1,498 @@
-# Treasure Lottery 🎁
+# Treasure Lottery
 
 <div align="center">
-  <img src="frontend/src/assets/chest-closed.png" alt="Treasure Lottery Logo" width="200"/>
+  <img src="frontend/src/assets/chest-closed.png" alt="Treasure Lottery" width="180"/>
 
-  ### FHE-Powered Q&A Treasure Hunt Game
+  **Privacy-Preserving Q&A Treasure Hunt Game**
 
-  Answer encrypted questions to unlock treasure chests and win rewards!
+  Built with Zama fhEVM v0.9.1 | Fully Homomorphic Encryption on Ethereum
 
-  [![Live Demo](https://img.shields.io/badge/Demo-treasurelottery.vercel.app-blue?style=for-the-badge)](https://treasurelottery.vercel.app)
-  [![Download Demo Video](https://img.shields.io/badge/📹_Download_Demo-Video-red?style=for-the-badge)](https://github.com/CrystalValentine143517/Treasure-Lottery/raw/main/frontend/video2025-10-23%2020.21.28.mp4)
-
-  [![Solidity](https://img.shields.io/badge/Solidity-0.8.24-363636?style=for-the-badge&logo=solidity)](https://soliditylang.org/)
-  [![React](https://img.shields.io/badge/React-18.3-61DAFB?style=for-the-badge&logo=react)](https://react.dev/)
-  [![Zama FHE](https://img.shields.io/badge/Zama-FHE-7C3AED?style=for-the-badge)](https://www.zama.ai/)
+  [![Live Demo](https://img.shields.io/badge/Live-treasurelottery.vercel.app-0066FF?style=flat-square)](https://treasurelottery.vercel.app)
+  [![Sepolia](https://img.shields.io/badge/Network-Sepolia-6B7280?style=flat-square)](https://sepolia.etherscan.io/address/0x8B4C4682EE9832FFeFAc0d38b2422A8Fa6a4115d)
+  [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 </div>
 
 ---
 
-## 📹 Demo Video
+## Overview
 
-Click the button above or [**download the demo video here**](https://github.com/CrystalValentine143517/Treasure-Lottery/raw/main/frontend/video2025-10-23%2020.21.28.mp4) to see Treasure Lottery in action!
+Treasure Lottery is a decentralized quiz game demonstrating practical applications of Fully Homomorphic Encryption (FHE) in blockchain gaming. Players answer encrypted questions to unlock treasure chests, with answer verification performed entirely on encrypted data—ensuring correct answers are never exposed on-chain.
 
----
+### Key Innovation
 
-## 🎮 What is Treasure Lottery?
-
-Treasure Lottery is an on-chain quiz game where players answer encrypted questions to unlock treasure chests. Built with **Zama's Fully Homomorphic Encryption (FHE)** technology, the game demonstrates privacy-preserving computation on the blockchain.
-
-### 🎯 Game Features
-
-- **8 Unique Questions**: Math problems, riddles, and trivia challenges
-- **Daily Challenge System**: 3 attempts per day per wallet address
-- **Encrypted Verification**: Answers are verified using FHE without exposing correct answers on-chain
-- **Progressive Rewards**: 100-300 coins depending on question difficulty
-- **Real-time Updates**: Instant feedback on answer correctness
-- **Wallet Integration**: Connect with MetaMask via RainbowKit
+Unlike traditional blockchain games where answers must be hashed or revealed, this implementation uses **homomorphic comparison** to verify answers while both the correct answer and player submission remain encrypted throughout the entire lifecycle.
 
 ---
 
-## 🔐 How FHE Powers the Game
+## Table of Contents
 
-### What is FHE?
+- [Game Mechanics](#game-mechanics)
+- [Technical Architecture](#technical-architecture)
+- [FHE Implementation](#fhe-implementation)
+- [Smart Contract Design](#smart-contract-design)
+- [Project Structure](#project-structure)
+- [Dependencies](#dependencies)
+- [Deployment](#deployment)
+- [Local Development](#local-development)
+- [Testing](#testing)
+- [API Reference](#api-reference)
 
-**Fully Homomorphic Encryption (FHE)** allows computations to be performed on encrypted data without decrypting it. This means:
-- ✅ Correct answers are stored **encrypted** on-chain
-- ✅ Player answers are **encrypted** before comparison
-- ✅ Verification happens through **homomorphic equality checks**
-- ✅ No sensitive data is ever exposed in plaintext
+---
 
-### FHE Implementation
+## Game Mechanics
 
+### Gameplay Flow
+
+```
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│  Connect Wallet │────▶│  Get Random Q    │────▶│  Submit Answer  │
+└─────────────────┘     └──────────────────┘     └────────┬────────┘
+                                                          │
+                        ┌──────────────────┐              │
+                        │  Claim Result    │◀─────────────┘
+                        │  (KMS Decrypt)   │
+                        └────────┬─────────┘
+                                 │
+              ┌──────────────────┴──────────────────┐
+              ▼                                      ▼
+    ┌─────────────────┐                   ┌─────────────────┐
+    │  Correct: +100  │                   │  Wrong: Retry   │
+    │  Chest Opens!   │                   │  (if attempts)  │
+    └─────────────────┘                   └─────────────────┘
+```
+
+### Rules
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| Daily Attempts | 3 | Maximum attempts per wallet per day |
+| Reset Cycle | 24 hours | UTC-based daily reset |
+| Base Reward | 100 coins | Standard question reward |
+| Bonus Reward | 200-300 coins | Difficult question multiplier |
+| Question Pool | 8 questions | Initial deployment |
+
+### Question Bank
+
+| ID | Category | Difficulty | Reward |
+|----|----------|------------|--------|
+| 0-2 | Arithmetic | Easy | 100 |
+| 3-5 | General Knowledge | Easy | 100 |
+| 6 | Mathematics | Medium | 200 |
+| 7 | Pop Culture | Hard | 300 |
+
+---
+
+## Technical Architecture
+
+### System Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                        Frontend (React)                          │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
+│  │ RainbowKit  │  │ Wagmi v2    │  │ Zama Relayer SDK        │  │
+│  │ (Wallet UI) │  │ (Hooks)     │  │ (FHE Encryption)        │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────────┘  │
+└────────────────────────────┬─────────────────────────────────────┘
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                     Ethereum Sepolia                              │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │              QuestionTreasureBox.sol                        │  │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │  │
+│  │  │ FHE.asEuint32│  │ FHE.eq()     │  │ FHE.checkSigs()  │  │  │
+│  │  │ (Encrypt)    │  │ (Compare)    │  │ (Verify KMS)     │  │  │
+│  │  └──────────────┘  └──────────────┘  └──────────────────┘  │  │
+│  └────────────────────────────────────────────────────────────┘  │
+└────────────────────────────┬─────────────────────────────────────┘
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                     Zama KMS Infrastructure                       │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │  Key Management Service | Threshold Decryption | Signatures │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow: Encrypted Answer Submission
+
+```
+1. Frontend: encryptAnswer(userAnswer) via Relayer SDK
+   └─▶ Returns: { handle: bytes32, proof: bytes }
+
+2. Contract: submitEncryptedAnswer(questionId, handle, proof)
+   └─▶ FHE.fromExternal(handle, proof) → euint32
+   └─▶ FHE.eq(userAnswer, correctAnswer) → ebool
+   └─▶ FHE.makePubliclyDecryptable(result)
+   └─▶ Store PendingAnswer { player, questionId, encryptedResult }
+
+3. Frontend: publicDecrypt([resultHandle]) via Relayer SDK
+   └─▶ KMS performs threshold decryption
+   └─▶ Returns: { clearValues, decryptionProof }
+
+4. Contract: claimResult(pendingAnswerId, decryptedResult, proof)
+   └─▶ FHE.checkSignatures(handles, encodedResult, proof)
+   └─▶ If valid && result==true: unlock treasure
+```
+
+---
+
+## FHE Implementation
+
+### Core FHE Operations
+
+#### 1. Answer Encryption (On-Chain)
 ```solidity
-// Store encrypted answer
+// Store encrypted answer during question creation
 euint32 encryptedAnswer = FHE.asEuint32(answer);
 FHE.allowThis(encryptedAnswer);
-
-// Encrypt user's answer
-euint32 encryptedUserAnswer = FHE.asEuint32(userAnswer);
-
-// Homomorphic comparison (without decryption!)
-ebool isCorrect = FHE.eq(encryptedUserAnswer, question.encryptedAnswer);
 ```
 
-**Key FHE Operations Used:**
-- `FHE.asEuint32()` - Encrypt plaintext values
-- `FHE.eq()` - Homomorphic equality comparison
-- `FHE.allowThis()` - Grant contract permission to access encrypted values
-
----
-
-## 🎲 How to Play
-
-### Step 1: Connect Wallet
-Visit [treasurelottery.vercel.app](https://treasurelottery.vercel.app) and connect your wallet (Sepolia testnet required).
-
-### Step 2: Answer Questions
-You'll see a random question from our question bank:
-- **Math Questions**: Simple arithmetic (e.g., "What is 5 + 7?")
-- **Riddles**: Number-based puzzles (e.g., "How many days in a week?")
-- **Bonus Questions**: Higher difficulty, higher rewards
-
-### Step 3: Submit Your Answer
-Enter your numeric answer and submit. The smart contract will:
-1. Encrypt your answer using FHE
-2. Compare it with the stored encrypted answer
-3. Update your progress if correct
-
-### Step 4: Claim Rewards
-- ✅ Correct answer → Treasure chest opens, coins awarded!
-- ❌ Wrong answer → Try again (if attempts remaining)
-
-### Daily Limits
-- **3 attempts per day** per wallet address
-- Resets automatically every 24 hours
-- Track your progress: total solved questions and total rewards earned
-
----
-
-## 🛠️ Tech Stack
-
-### Smart Contracts
-- **Solidity 0.8.24** - Smart contract language
-- **Zama fhEVM** - FHE library for Solidity
-- **Hardhat** - Development framework
-- **Sepolia Testnet** - Deployment network
-
-### Frontend
-- **React 18.3** - UI framework
-- **TypeScript** - Type safety
-- **Vite** - Build tool
-- **RainbowKit + Wagmi v2** - Wallet connection
-- **Ant Design 5.0** - UI components
-- **Framer Motion** - Animations
-- **TailwindCSS** - Styling
-
----
-
-## 📦 Project Structure
-
-```
-EncryptedTreasure-Dive/
-├── contracts/
-│   ├── QuestionTreasureBox.sol    # Main game contract with FHE
-│   ├── ChallengeTreasureBox.sol   # Challenge variant
-│   └── SimplifiedQuestionBox.sol  # Non-FHE version
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── TreasureChest.tsx  # Main game component
-│   │   │   ├── Header.tsx         # Navigation
-│   │   │   └── ui/                # Shared UI components
-│   │   ├── config/
-│   │   │   └── contract.ts        # Contract ABI & address
-│   │   └── assets/                # Images and resources
-│   └── package.json
-├── scripts/
-│   ├── deploy.js                  # Deployment script
-│   ├── test-questions.js          # Test contract questions
-│   └── check-player.js            # Check player progress
-└── hardhat.config.js              # Hardhat configuration
-```
-
----
-
-## 🚀 Deployment
-
-### Smart Contract
-**Network**: Sepolia Testnet
-**Contract Address**: `0x0Ea0F5f9512c05E60f41fdCF87CC0c572A1254eB`
-**Etherscan**: [View on Etherscan](https://sepolia.etherscan.io/address/0x0Ea0F5f9512c05E60f41fdCF87CC0c572A1254eB)
-
-### Frontend
-**Live Demo**: [treasurelottery.vercel.app](https://treasurelottery.vercel.app)
-**Platform**: Vercel
-**Auto-Deploy**: Enabled on `main` branch
-
----
-
-## 💻 Local Development
-
-### Prerequisites
-- Node.js 18+
-- npm or yarn
-- MetaMask wallet
-- Sepolia testnet ETH
-
-### Install Dependencies
-```bash
-# Install root dependencies
-npm install
-
-# Install frontend dependencies
-cd frontend
-npm install
-```
-
-### Run Frontend
-```bash
-cd frontend
-npm run dev
-```
-Visit `http://localhost:8080`
-
-### Compile Contracts
-```bash
-npx hardhat compile
-```
-
-### Deploy Contract
-```bash
-SEPOLIA_RPC_URL="<your-rpc-url>" npx hardhat run scripts/deploy.js --network sepolia
-```
-
----
-
-## 🎯 Game Rules
-
-### Question Bank (8 Questions Total)
-
-| ID | Question | Answer | Reward |
-|----|----------|--------|--------|
-| 0 | What is 5 + 7? | 12 | 100 |
-| 1 | What is 15 - 8? | 7 | 100 |
-| 2 | What is 6 * 4? | 24 | 100 |
-| 3 | How many days in a week? | 7 | 100 |
-| 4 | How many months in a year? | 12 | 100 |
-| 5 | How many sides does a hexagon have? | 6 | 100 |
-| 6 | What is 10 squared (10^2)? | 100 | 200 |
-| 7 | What is the answer to life, universe, and everything? | 42 | 300 |
-
-### Scoring System
-- **Regular Questions**: 100 coins each
-- **Bonus Questions**: 200-300 coins
-- **Daily Limit**: Maximum 3 attempts per day
-- **Solved Questions**: Cannot be answered again by the same wallet
-
----
-
-## 🔧 Smart Contract Functions
-
-### Player Functions
+#### 2. Encrypted Input Processing (User Submission)
 ```solidity
-// Answer a question
-function answerQuestion(uint256 questionId, uint32 answer) external
-
-// Get player's progress
-function getPlayerProgress(address player) external view returns (
-    uint8 attemptsToday,
-    uint8 remainingAttempts,
-    uint256 totalSolved,
-    uint64 totalRewards,
-    uint256 timeUntilReset
-)
-
-// Get random unsolved question
-function getRandomQuestion(address player) external view returns (uint256)
-
-// Get question details
-function getQuestion(uint256 questionId) external view returns (
-    string memory questionText,
-    uint64 reward,
-    bool isActive,
-    bool playerSolved
-)
+// Convert external encrypted input to internal euint32
+euint32 userEncryptedAnswer = FHE.fromExternal(encryptedAnswer, inputProof);
+FHE.allowThis(userEncryptedAnswer);
 ```
+
+#### 3. Homomorphic Comparison
+```solidity
+// Compare two encrypted values without decryption
+ebool isCorrect = FHE.eq(userEncryptedAnswer, question.encryptedAnswer);
+FHE.allowThis(isCorrect);
+FHE.makePubliclyDecryptable(isCorrect);
+```
+
+#### 4. KMS Signature Verification
+```solidity
+// Verify decryption proof from KMS
+bytes32[] memory handles = new bytes32[](1);
+handles[0] = FHE.toBytes32(pending.encryptedResult);
+bytes memory abiEncodedResult = abi.encode(decryptedResult);
+FHE.checkSignatures(handles, abiEncodedResult, decryptionProof);
+```
+
+### Frontend FHE Integration
+
+```typescript
+// Initialize FHE instance
+const sdk = window.RelayerSDK;
+const { initSDK, createInstance, SepoliaConfig } = sdk;
+await initSDK();
+const fheInstance = await createInstance({ ...SepoliaConfig, network: provider });
+
+// Encrypt answer before submission
+const input = fheInstance.createEncryptedInput(contractAddr, userAddr);
+input.add32(answer);
+const { handles, inputProof } = await input.encrypt();
+
+// Request public decryption
+const results = await fheInstance.publicDecrypt([handle]);
+const clearValue = results.clearValues[handle];
+const decryptionProof = results.decryptionProof;
+```
+
+### Security Guarantees
+
+| Property | Mechanism |
+|----------|-----------|
+| Answer Confidentiality | Answers stored as `euint32`, never decrypted on-chain |
+| Input Privacy | User answers encrypted client-side before submission |
+| Verification Integrity | Homomorphic `FHE.eq()` comparison on encrypted data |
+| Decryption Authenticity | KMS threshold signatures verified via `FHE.checkSignatures()` |
+
+---
+
+## Smart Contract Design
+
+### Contract: QuestionTreasureBox.sol
+
+**Inheritance**: `ZamaEthereumConfig`
+
+### State Variables
+
+```solidity
+struct Question {
+    string questionText;
+    euint32 encryptedAnswer;  // FHE encrypted
+    uint64 reward;
+    bool isActive;
+    uint256 createdAt;
+}
+
+struct DailyProgress {
+    uint256 lastResetDay;
+    uint8 attemptsToday;
+    uint256 totalSolved;
+    uint64 totalRewards;
+}
+
+struct PendingAnswer {
+    address player;
+    uint256 questionId;
+    ebool encryptedResult;  // FHE encrypted comparison result
+    uint256 timestamp;
+    bool processed;
+}
+```
+
+### Core Functions
+
+| Function | Access | Description |
+|----------|--------|-------------|
+| `submitEncryptedAnswer` | External | Submit FHE-encrypted answer |
+| `claimResult` | External | Verify KMS proof and claim reward |
+| `answerQuestion` | External | Demo mode (on-chain encryption) |
+| `createQuestion` | External | Add new question to pool |
+| `getPlayerProgress` | View | Query player stats |
+| `getRandomQuestion` | View | Get unsolved question for player |
 
 ### Events
+
 ```solidity
-event QuestionAttempted(address indexed player, uint256 indexed questionId, bool success);
+event AnswerSubmitted(address indexed player, uint256 indexed questionId,
+                      uint256 pendingAnswerId, bytes32 encryptedResultHandle);
 event TreasureUnlocked(address indexed player, uint256 indexed questionId, uint64 reward);
+event AnswerWrong(address indexed player, uint256 indexed questionId);
 event DailyLimitReset(address indexed player, uint256 newDay);
 ```
 
----
+### Custom Errors
 
-## 🎨 UI/UX Features
-
-- **Animated Treasure Chest**: Opens when answer is correct
-- **Particle Effects**: Celebration animation on success
-- **Progress Tracking**: Real-time display of attempts and rewards
-- **Daily Reset Timer**: Countdown to next reset
-- **Responsive Design**: Works on desktop and mobile
-- **Dark Theme**: Eye-friendly interface
-- **Toast Notifications**: Instant feedback on actions
-
----
-
-## 🔒 Security Features
-
-### FHE Privacy
-- Correct answers are **never exposed** on-chain
-- Answer verification happens through **encrypted comparison**
-- No need to trust server or frontend for answer validation
-
-### Smart Contract Security
-- **Re-entrancy Protection**: Attempts incremented before comparison
-- **Daily Limit Enforcement**: Automatic reset mechanism
-- **Already Solved Check**: Prevents double-claiming rewards
-- **Input Validation**: All user inputs are validated
+```solidity
+error DailyLimitReached(uint8 attemptsUsed, uint256 resetsIn);
+error AlreadySolved(uint256 questionId);
+error QuestionNotActive(uint256 questionId);
+error InvalidQuestionId();
+error NoPendingAnswer();
+error AnswerAlreadyProcessed();
+error InvalidDecryptionProof();
+```
 
 ---
 
-## 📝 License
+## Project Structure
 
-This project is open source and available under the MIT License.
+```
+TreasureLottery/
+├── contracts/
+│   ├── QuestionTreasureBox.sol      # Main FHE game contract
+│   ├── QuestionTreasureBoxTest.sol  # Non-FHE test variant
+│   ├── ChallengeTreasureBox.sol     # Challenge mode variant
+│   └── SimpleTreasureBoxV2.sol      # Simplified version
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   └── TreasureChest.tsx    # Main game UI
+│   │   ├── config/
+│   │   │   └── contract.ts          # ABI & address
+│   │   ├── lib/
+│   │   │   └── fhe.ts               # FHE SDK wrapper
+│   │   └── pages/
+│   │       └── Home.tsx             # Landing page
+│   └── package.json
+├── scripts/
+│   ├── deploy.js                    # Deployment script
+│   ├── create-questions.js          # Initialize questions
+│   └── check-player.js              # Debug utilities
+├── test/
+│   ├── QuestionTreasureBox.test.js      # Non-FHE unit tests
+│   └── QuestionTreasureBox.fhe.test.js  # FHE unit tests
+├── hardhat.config.js
+└── package.json
+```
 
 ---
 
-## 🙏 Acknowledgments
+## Dependencies
 
-- **Zama** - For providing the fhEVM library and FHE infrastructure
-- **OpenZeppelin** - Smart contract security standards
-- **RainbowKit** - Beautiful wallet connection UI
-- **Ant Design** - Comprehensive UI component library
+### Smart Contract Dependencies
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `@fhevm/solidity` | ^0.9.1 | Zama FHE library for Solidity |
+| `@fhevm/hardhat-plugin` | ^0.3.0-1 | Hardhat FHE testing support |
+| `hardhat` | ^2.22.0 | Development framework |
+| `@nomicfoundation/hardhat-toolbox` | ^5.0.0 | Testing utilities |
+
+### Frontend Dependencies
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `react` | ^18.3.1 | UI framework |
+| `viem` | ^2.38.3 | Ethereum client |
+| `wagmi` | ^2.18.2 | React hooks for Ethereum |
+| `@rainbow-me/rainbowkit` | ^2.2.9 | Wallet connection UI |
+| `@tanstack/react-query` | ^5.83.0 | Async state management |
+| `framer-motion` | ^12.23.24 | Animations |
+| `tailwindcss` | ^3.4.17 | Styling |
+| `typescript` | ^5.8.3 | Type safety |
+| `vite` | ^5.4.19 | Build tool |
+
+### External Services
+
+| Service | Purpose |
+|---------|---------|
+| Zama Relayer SDK (CDN) | Client-side FHE encryption |
+| Zama KMS | Threshold decryption service |
+| Sepolia RPC | Ethereum testnet |
 
 ---
 
-## 🔗 Links
+## Deployment
 
-- **Live Demo**: [treasurelottery.vercel.app](https://treasurelottery.vercel.app)
-- **GitHub**: [Treasure-Lottery](https://github.com/CrystalValentine143517/Treasure-Lottery)
-- **Contract**: [0x0Ea0F5f9512c05E60f41fdCF87CC0c572A1254eB](https://sepolia.etherscan.io/address/0x0Ea0F5f9512c05E60f41fdCF87CC0c572A1254eB)
-- **Zama Documentation**: [docs.zama.ai](https://docs.zama.ai)
+### Contract Deployment
+
+**Network**: Ethereum Sepolia Testnet
+**Contract Address**: `0x8B4C4682EE9832FFeFAc0d38b2422A8Fa6a4115d`
+**Explorer**: [View on Etherscan](https://sepolia.etherscan.io/address/0x8B4C4682EE9832FFeFAc0d38b2422A8Fa6a4115d)
+
+### Frontend Deployment
+
+**Platform**: Vercel
+**URL**: [treasurelottery.vercel.app](https://treasurelottery.vercel.app)
+**Build**: Automatic on main branch push
+
+---
+
+## Local Development
+
+### Prerequisites
+
+- Node.js >= 18.0.0
+- npm >= 9.0.0
+- MetaMask or compatible wallet
+- Sepolia testnet ETH ([Faucet](https://sepoliafaucet.com))
+
+### Setup
+
+```bash
+# Clone repository
+git clone https://github.com/CrystalValentine143517/Treasure-Lottery.git
+cd Treasure-Lottery
+
+# Install contract dependencies
+npm install
+
+# Install frontend dependencies
+cd frontend && npm install
+```
+
+### Environment Configuration
+
+```bash
+# Root .env
+SEPOLIA_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
+DEPLOYER_PRIVATE_KEY=0x...
+ETHERSCAN_API_KEY=...
+```
+
+### Development Commands
+
+```bash
+# Compile contracts
+npm run compile
+
+# Run tests
+npm run test
+
+# Deploy to Sepolia
+npm run deploy
+
+# Start frontend dev server
+cd frontend && npm run dev
+```
+
+---
+
+## Testing
+
+### Test Suites
+
+| Suite | Tests | Description |
+|-------|-------|-------------|
+| `QuestionTreasureBox.test.js` | 30 | Non-FHE functional tests |
+| `QuestionTreasureBox.fhe.test.js` | 28 | FHE mock environment tests |
+
+### Run Tests
+
+```bash
+# Run all tests
+SEPOLIA_RPC_URL="https://ethereum-sepolia-rpc.publicnode.com" npx hardhat test
+
+# Run FHE tests only
+npx hardhat test test/QuestionTreasureBox.fhe.test.js
+
+# Run with gas reporting
+REPORT_GAS=true npx hardhat test
+```
+
+### FHE Test Coverage
+
+- Encrypted answer submission
+- Daily limit enforcement with FHE
+- Multi-player encrypted submissions
+- Pending answer management
+- Edge cases (zero, max uint32)
+
+---
+
+## API Reference
+
+### Frontend FHE Library (`lib/fhe.ts`)
+
+```typescript
+// Initialize FHE SDK
+initializeFHE(provider?: any): Promise<FHEInstance>
+
+// Encrypt answer for submission
+encryptAnswer(userAddress: Address, answer: number, provider?: any): Promise<{
+  handle: `0x${string}`;
+  proof: `0x${string}`;
+}>
+
+// Request public decryption from KMS
+requestDecryption(handle: `0x${string}`, provider?: any): Promise<{
+  decryptedResult: boolean;
+  decryptionProof: `0x${string}`;
+}>
+
+// Request decryption with retry
+requestDecryptionWithRetry(
+  handle: `0x${string}`,
+  maxRetries?: number,
+  retryDelayMs?: number,
+  provider?: any
+): Promise<{ decryptedResult: boolean; decryptionProof: `0x${string}` }>
+
+// Status utilities
+isFHEReady(): boolean
+waitForFHE(timeoutMs?: number): Promise<boolean>
+getFHEStatus(): { sdkLoaded: boolean; instanceReady: boolean }
+```
+
+---
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+## Acknowledgments
+
+- [Zama](https://www.zama.ai/) - fhEVM and FHE infrastructure
+- [RainbowKit](https://www.rainbowkit.com/) - Wallet connection
+- [Wagmi](https://wagmi.sh/) - React hooks for Ethereum
 
 ---
 
 <div align="center">
 
-  **Built with ❤️ using Zama FHE Technology**
+  **Built with Zama fhEVM v0.9.1**
 
-  Made by CrystalValentine143517
+  [Documentation](https://docs.zama.ai) | [Discord](https://discord.gg/zama) | [GitHub](https://github.com/zama-ai)
 
 </div>
